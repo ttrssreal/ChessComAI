@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "Chess.com AI",
+  "version": "1.0",
+  "description": "Gives You Some Good Moves",
+  "icons" : {
+    "32": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.chess.com/play/*"],
+      "js": ["jquery-3.6.0.min.js", "chess.js", "content.js"]
+    }
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "background_page": "background.html"
+  },
+  "browser_action": {}
+}
