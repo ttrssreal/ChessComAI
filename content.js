@@ -1,4 +1,4 @@
-squarePositions = {
+const squarePositions = {
   "11": "a1",
   "12": "a2",
   "13": "a3",
@@ -65,7 +65,7 @@ squarePositions = {
   "88": "h8"
 }
 
-pieceWeights = {
+const pieceWeights = {
   "p": 100,
   "n": 280,
   "b": 320,
@@ -202,9 +202,96 @@ function getPieceValue(piece) {
     return piece.color === 'w' ? absoluteValue : -absoluteValue;
 }
 
+function minimax(depth, game, isMaximisingPlayer) {
+    positionCount++;
+    if (depth === 0) {
+        return -evalBoard(game.board());
+    }
+
+    var newGameMoves = game.moves();
+
+    if (isMaximisingPlayer) {
+        var bestMove = -9999;
+        for (var i = 0; i < newGameMoves.length; i++) {
+            game.move(newGameMoves[i]);
+            bestMove = Math.max(bestMove, minimax(depth - 1, game, !isMaximisingPlayer));
+            game.undo();
+        }
+        return bestMove;
+    } else {
+        var bestMove = 9999;
+        for (var i = 0; i < newGameMoves.length; i++) {
+            game.move(newGameMoves[i]);
+            bestMove = Math.min(bestMove, minimax(depth - 1, game, !isMaximisingPlayer));
+            game.undo();
+        }
+        return bestMove;
+    }
+}
+
+function minimaxRoot(depth, game, isMaximisingPlayer) {
+
+    var newGameMoves = game.moves();
+    var bestMove = -9999;
+    var bestMoveFound;
+    positionCount = 0;
+
+    for(var i = 0; i < newGameMoves.length; i++) {
+        var newGameMove = newGameMoves[i];
+        game.move(newGameMove);
+        var value = minimax(depth - 1, game, !isMaximisingPlayer);
+        game.undo();
+        if(value >= bestMove) {
+            bestMove = value;
+            bestMoveFound = newGameMove;
+        }
+    }
+    return bestMoveFound;
+};
+
 const chess = new Chess();
 
 $(".piece").html("YES");
+
+// console.log($(".player-row-component").html())
+
+$(".player-row-component.player-component").html($(".player-row-component.player-component").html() + `
+<div class="player-row-container">
+   <div class="player-row-wrapper">
+    <img alt="" src="`+chrome.runtime.getURL("icon.jpeg")+`" srcset="https:////betacssjs.chesscomfiles.com/bundles/web/images/user-image.007dad08.svg, https:////betacssjs.chesscomfiles.com/bundles/web/images/user-image.007dad08.svg 2x" class="avatar-component player-row-avatar" image="https:////betacssjs.chesscomfiles.com/bundles/web/images/user-image.007dad08.svg" style="height: 40px; left: 0px; width: 40px;">
+    <div>
+     <div class="player-row-username">
+      <div class="user-tagline-component player-row-username">
+       <!----> 
+       <span class="user-username-component user-username-lightgray user-tagline-username boiiiii">Move: </span> 
+       <!----> 
+      </div>
+     </div> 
+    </div>
+   </div>
+  </div>
+`);
+
+let button = `
+<div class="move-feedback-component feedback-wrapper-component">
+<script>
+function resetBoard() {
+  var evt = document.createEvent('Event');
+  evt.initEvent('resetBoard', true, false);
+  document.dispatchEvent(evt);
+}
+</script> 
+<button onclick="resetBoard()">Clear AI Memory</button>
+</div>
+`
+$(".feedback.layout-feedback").html($(".feedback.layout-feedback").html() + button);
+
+$(".move-feedback-component.feedback-wrapper-component").css({"height": "52px"})
+
+/*
+<div class="player-row-container"><div class="player-row-wrapper"><img alt="" class="avatar-component player-row-avatar" image="https://images.chesscomfiles.com/uploads/v1/user/66746160.794c1e49.200x200o.dbe7eab8b66c.png" style="height: 40px; left: 0px; width: 40px;"> <div><div class="player-row-username"><div class="user-tagline-component player-row-username"><!----> <span class="user-username-component user-username-lightgray user-tagline-username">Qxe8
+</span>   <!----> </div></div> </div></div></div>
+*/
 
 var currentPieces = [];
 $(".piece").each((index, element) => {
@@ -213,6 +300,16 @@ $(".piece").each((index, element) => {
 
 var timeInterval = 1;
 
+function updateMove() {
+  var positionCount;
+  var bestMove = minimaxRoot(2, chess, true);
+  $(".user-username-component.user-username-lightgray.user-tagline-username.boiiiii").html("Move: " + bestMove);
+}
+
+document.addEventListener('resetBoard', function() {
+  console.log("boardReset");
+  chess.reset();
+});
        
       /* .move({ from: 'h7', <- where the 'move' is a move object (additional
        *         to :'h8',      fields are ignored)
@@ -222,8 +319,8 @@ var timeInterval = 1;
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.message === "clicked_browser_action") {
-    var bestMove = calculateBestMove(chess);
-    console.log(bestMove);
+    updateMove();
+    
   }
 });
 
@@ -236,29 +333,40 @@ setInterval(() => {
   if (!arrayEquals(currentPieces, newPieces)) {
     let difference = arr_diff(currentPieces, newPieces);
     let containsDragging = false;
+    let blackPiece = false;
 
     // console.log(difference);
 
     if (typeof difference[1] != 'undefined') {
-      if (difference[1].search("dragging") == -1) {
-      difference[0] = difference[0].slice(0, 18);
-      if (!(difference[0] == difference[1])) {
-        difference = [difference[0], difference[1]];
-        
-        let doubleDigitsRegexp = /\d\d/;
-
-        let move = [squarePositions[difference[0].match(doubleDigitsRegexp)[0]], squarePositions[difference[1].match(doubleDigitsRegexp)[0]]]
-        
-        chess.move({
-          from: move[0],
-          to: move[1]
-        });
-
-        console.log(move)
-
-        console.log(chess.ascii());
+      if (/b/.test(difference[0]) || /b/.test(difference[1])) {
+        blackPiece = true;
+      } else {
+        blackPiece = false;
       }
-    }
+      if (difference[1].search("dragging") == -1) {
+        // difference[0] = difference[0].slice(0, 18);
+        console.log(difference);
+        if (!(difference[0] == difference[1])) {
+          difference = [difference[0], difference[1]];
+          
+          let doubleDigitsRegexp = /\d\d/;
+
+          let move = [squarePositions[difference[0].match(doubleDigitsRegexp)[0]], squarePositions[difference[1].match(doubleDigitsRegexp)[0]]]
+          
+          chess.move({
+            from: move[0],
+            to: move[1]
+          });
+
+          console.log(move)
+
+          console.log(chess.ascii());
+
+          if (blackPiece) {
+            updateMove();
+          }
+        }
+      }
     }
     currentPieces = newPieces;
   }
